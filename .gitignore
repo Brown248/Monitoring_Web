@@ -6,6 +6,7 @@ next-env.d.ts
 coverage/
 .dev-db/
 backups/
+logs/
 
 # secrets
 .env

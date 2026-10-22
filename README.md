@@ -60,11 +60,27 @@ curl -s localhost:3000/api/health            # ต้องเห็น "databas
 และค่าตั้งที่ไม่ใช่ความลับ (ไม่มีรหัสผ่าน/ประวัติ/ภาพต้นแบบ) · เว็บที่ URL มีอยู่แล้วจะข้าม · ค่าตั้งที่ server บันทึกไว้แล้วไม่ถูกทับ
 (`--overwrite-settings` ถ้าต้องการ) · ดูผลก่อนด้วย `--dry-run` · **ไฟล์นี้มีอีเมลผู้รับ — ใช้กับ repo แบบ Private**
 
-อัปเดตรอบถัดไป (migrate ให้เองทุกครั้ง):
+### อัปเดตอัตโนมัติ (push แล้ว VM อัปเดตเอง)
+
+push ขึ้น `main` → GitHub Actions ตรวจ (format · lint · typecheck · test) → **ผ่านแล้วเท่านั้น** ถึง build image ขึ้น
+GitHub Packages (`ghcr.io/brown248/monitoring-web`, `-worker`) → VM ดึงรุ่นใหม่เองภายใน ~5 นาที
+
+ตั้งครั้งเดียวบน VM:
 
 ```bash
-git pull && docker compose up -d --build && docker image prune -f   # prune = ลบ image รุ่นเก่าที่ค้าง ไม่ให้ดิสก์เต็ม
+# 1) token สำหรับอ่าน image (repo Private): GitHub → Settings → Developer settings → Personal access tokens
+#    → Tokens (classic) → Generate → ติ๊กเฉพาะ read:packages
+docker login ghcr.io -u Brown248            # วาง token ตรง Password (ไม่แสดงบนจอ)
+# 2) ตั้งให้ตรวจทุก 5 นาที
+crontab -e                                  # */5 * * * * bash /home/<ผู้ใช้>/monitoring-web/scripts/auto-update.sh
 ```
+
+- ไม่มีรุ่นใหม่ = ไม่ทำอะไร · มีรุ่นใหม่ = `git pull` + ดึง image + `docker compose up -d` (ปรับฐานข้อมูลให้เอง)
+- รอ web/worker **healthy** ภายใน 3 นาที — ไม่ผ่าน = **ย้อนกลับรุ่นเดิมเอง** และไม่ลองรุ่นนั้นซ้ำจนกว่าจะมี commit ใหม่
+- ดูผล: `tail -f logs/auto-update.log` · ย้อนรุ่นเอง: ตั้ง `IMAGE_TAG=sha-xxxxxxx` ใน `.env` แล้ว `docker compose up -d`
+- ดูสถานะ build: แท็บ **Actions** ใน GitHub (ขึ้นแดง = เทสต์ไม่ผ่าน VM ไม่อัปเดต)
+- ยังไม่ได้ login ghcr / อยาก build เองบน VM: `git pull && docker compose up -d --build`
+- token หมดอายุ → log ขึ้น "ดึง image ไม่ได้" → สร้าง token ใหม่แล้ว `docker login ghcr.io` อีกครั้ง
 
 ข้อควรรู้เรื่อง `.env`
 
