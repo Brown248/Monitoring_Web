@@ -35,7 +35,10 @@ main() {
   worker_img=$(docker compose config --images | grep -- '-worker:' | head -1)
   old_web=$(docker image inspect -f '{{.Id}}' "$web_img" 2>/dev/null || true)
   old_worker=$(docker image inspect -f '{{.Id}}' "$worker_img" 2>/dev/null || true)
-  if ! docker compose pull -q web worker migrate 2>>"$log_file"; then
+  # docker เขียนความคืบหน้า ("Pulled") ลง stderr ทุกครั้ง — เก็บลง log เฉพาะตอนล้มเหลว (ไม่ให้ log รกทุก 5 นาที)
+  local pull_out
+  if ! pull_out=$(docker compose pull -q web worker migrate 2>&1); then
+    printf '%s\n' "$pull_out" >>"$log_file"
     log "ERROR: ดึง image ไม่ได้ — ตรวจ docker login ghcr.io (token หมดอายุ?) / อินเทอร์เน็ต"
     exit 1
   fi
