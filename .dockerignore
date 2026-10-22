@@ -1,0 +1,13 @@
+**/node_modules
+**/.next
+**/dist
+**/*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.git
+.claude
+coverage
+# ฐานข้อมูลของเครื่อง dev และไฟล์ backup — ไม่ต้องส่งเข้า docker build (ใหญ่ และมีข้อมูลจริง)
+.dev-db
+backups

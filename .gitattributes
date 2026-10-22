@@ -1,0 +1,2 @@
+# สคริปต์ shell ต้องเป็น LF เสมอ (CRLF ทำให้ bash บน Linux รันไม่ได้)
+*.sh text eol=lf

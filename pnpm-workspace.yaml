@@ -1,0 +1,17 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# pnpm 11+ ใช้ allowBuilds แทน onlyBuiltDependencies
+# strictDepBuilds=true เป็นค่า default → package ที่มี build script แต่ไม่อยู่ในรายการจะทำให้ install fail
+allowBuilds:
+  argon2: true
+  esbuild: true
+  # PostgreSQL สำหรับ dev บนเครื่องที่ไม่มี Docker (pnpm dev:db)
+  "@embedded-postgres/windows-x64": true
+  "@embedded-postgres/linux-x64": true
+  "@embedded-postgres/darwin-arm64": true
+  unrs-resolver: true # มาจาก eslint-import-resolver-typescript (ผ่าน eslint-config-next)
+
+minimumReleaseAgeExclude:
+  - "@anthropic-ai/sdk@0.137.0"

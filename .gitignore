@@ -1,0 +1,22 @@
+node_modules/
+.next/
+dist/
+*.tsbuildinfo
+next-env.d.ts
+coverage/
+.dev-db/
+backups/
+
+# secrets
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Claude Code local data
+.claude/

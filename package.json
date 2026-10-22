@@ -1,0 +1,42 @@
+{
+  "name": "monitoring-web",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.14.0",
+  "engines": {
+    "node": ">=24.11.0"
+  },
+  "scripts": {
+    "dev:db": "node scripts/dev-db.mjs",
+    "dev:web": "pnpm --filter @app/web dev",
+    "dev:worker": "pnpm --filter @app/worker dev",
+    "build:web": "pnpm --filter @app/web build",
+    "start:web": "node scripts/start-web.mjs",
+    "start:worker": "pnpm --filter @app/worker build && node --env-file=.env --enable-source-maps apps/worker/dist/index.cjs",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "pnpm --filter @app/db generate",
+    "db:migrate": "pnpm --filter @app/worker migrate",
+    "db:studio": "pnpm --filter @app/db studio",
+    "user:create": "pnpm --filter @app/worker user:create"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@types/node": "^24",
+    "embedded-postgres": "18.4.0-beta.17",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.4.2",
+    "eslint-config-prettier": "10.1.8",
+    "pg": "8.23.1",
+    "prettier": "3.9.10",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.0",
+    "vitest": "5.0.5"
+  }
+}

@@ -1,0 +1,141 @@
+name: monitoring
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+x-db-url: &db-url postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+
+# อ่าน .env แบบตรงตัว (raw): รหัสผ่าน/API key ที่มี $ หรือ # ไม่ถูกตีความ (ต้องใช้ Docker Compose 2.30+)
+# ค่าใน environment: ของแต่ละ service มาก่อน env_file (เช่น DATABASE_URL ชี้ไปที่ container postgres)
+x-env-file: &env-file
+  - path: .env
+    required: false
+    format: raw
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    # aggregate ขนานบนข้อมูลเยอะ ใช้ shared memory เกิน 64 MB ที่ Docker ให้โดย default
+    shm_size: 256m
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      POSTGRES_DB: ${POSTGRES_DB:?required}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    volumes:
+      - pgdata:/var/lib/postgresql # PG 18+ ให้ mount ที่ path นี้ (ไม่ใช่ /var/lib/postgresql/data)
+    ports:
+      - "127.0.0.1:5432:5432" # เฉพาะ localhost สำหรับ migrate/สคริปต์ ไม่เปิดสู่ LAN
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging: *default-logging
+
+  # ปรับโครงสร้างฐานข้อมูลให้เป็นรุ่นล่าสุดก่อนเว็บ/Worker เริ่ม (รันแล้วจบ — ซ้ำได้ ทำเฉพาะที่ยังไม่ทำ)
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    image: monitoring-worker:local
+    restart: "no"
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: *db-url
+    command: ["node", "dist/migrate.cjs"]
+    logging: *default-logging
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: monitoring-web:local
+    restart: unless-stopped
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    env_file: *env-file
+    environment:
+      DATABASE_URL: *db-url
+      TZ: ${APP_TIMEZONE:-Asia/Bangkok}
+      APP_BASE_URL: ${APP_BASE_URL:?required}
+      APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Bangkok}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-12}
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-0}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # secret (SMTP_PASSWORD, AI_API_KEY, GOOGLE_SERVICE_ACCOUNT_JSON ฯลฯ) มาจาก env_file แบบ raw ด้านบน
+    ports:
+      # มี reverse proxy (TRUST_PROXY_HOPS > 0) → ตั้ง WEB_BIND=127.0.0.1 ให้เข้าได้ทาง proxy เท่านั้น
+      # (ไม่งั้นเข้าพอร์ตนี้ตรง ๆ แล้วปลอม X-Forwarded-For หลบการจำกัดการเดารหัสผ่านได้)
+      - "${WEB_BIND:-0.0.0.0}:${WEB_PORT:-3000}:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging: *default-logging
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    image: monitoring-worker:local
+    restart: unless-stopped
+    # tini เป็น PID 1: ส่งต่อ SIGTERM ให้ node และเก็บ process ลูกที่ค้าง (Chromium ที่ถูกปิดไม่หมด → zombie)
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    # ทุกค่าใน .env (รวม JOURNEY_* ของการทดสอบใช้งานจริง) — แบบ raw ไม่ตีความ $ / #
+    env_file: *env-file
+    environment:
+      DATABASE_URL: *db-url
+      TZ: ${APP_TIMEZONE:-Asia/Bangkok}
+      APP_BASE_URL: ${APP_BASE_URL:?required}
+      APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Bangkok}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      WORKER_POLL_INTERVAL_MS: ${WORKER_POLL_INTERVAL_MS:-2000}
+      WORKER_HEARTBEAT_INTERVAL_MS: ${WORKER_HEARTBEAT_INTERVAL_MS:-30000}
+      CANARY_URLS: ${CANARY_URLS-https://www.google.com/generate_204,https://www.cloudflare.com/cdn-cgi/trace}
+    # Chromium (ตรวจหน้าเว็บด้วยภาพ) ใช้ /dev/shm และหน่วยความจำเพิ่มระหว่างถ่ายภาพ
+    shm_size: 256m
+    healthcheck:
+      # worker touch ไฟล์นี้ทุก heartbeat; ไม่อัปเดตเกิน 90 วินาที = unhealthy
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "const s=require('node:fs').statSync('/tmp/worker.alive');process.exit(Date.now()-s.mtimeMs<90000?0:1)",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    stop_grace_period: 40s
+    logging: *default-logging
+
+volumes:
+  pgdata:
