@@ -49,6 +49,7 @@ import {
   syncIncidents,
 } from "./jobs/sheets";
 import { finishAiCall, getState, recheckRootCauses, reserveAiCall, tryAcquireLease } from "@app/db";
+import { exportSites, importSites } from "./sites-transfer";
 import { raiseAlertOnce, withBrowser } from "./jobs/visual";
 import { redactEmails } from "./jobs/postmortem";
 import type { SheetsClient } from "@app/core/server";
@@ -175,6 +176,83 @@ d("worker pipeline (real PostgreSQL)", () => {
         alertEmails: [],
       },
     };
+  });
+
+  it("export → import moves sites, links, journeys and settings — re-runnable, never overwrites", async () => {
+    await handle.db.execute(sql`DELETE FROM app_settings WHERE key IN ('smtp', 'retention')`);
+    await handle.db.execute(sql`TRUNCATE journeys, website_dependencies RESTART IDENTITY CASCADE`);
+    const api = await addSite("api", {
+      url: "https://api.example.com/health",
+      alertEmails: ["a@example.com"],
+    });
+    const crm = await addSite("crm", { url: "https://crm.example.com/" });
+    await handle.db.execute(
+      sql`INSERT INTO website_dependencies (website_id, depends_on_id) VALUES (${crm.id}, ${api.id})`,
+    );
+    await handle.db.execute(sql`
+      INSERT INTO journeys (website_id, enabled, interval_minutes, steps)
+      VALUES (${crm.id}, true, 15, ${JSON.stringify([{ action: "goto", value: "https://crm.example.com/" }])}::jsonb)
+    `);
+    await handle.db.execute(sql`
+      INSERT INTO app_settings (key, value) VALUES ('smtp', ${JSON.stringify({
+        host: "smtp.example.com",
+        port: 587,
+        security: "STARTTLS",
+        username: "n@example.com",
+        from: "Mon",
+        alertEmails: ["ops@example.com"],
+      })}::jsonb)
+    `);
+    const file = await exportSites(handle.db);
+    expect(file.websites.map((w) => w.name)).toEqual(["api", "crm"]);
+    expect(file.websites[0]).toMatchObject({ timeoutSeconds: 10, alertEmails: ["a@example.com"] });
+    expect(file.dependencies).toEqual([
+      { url: "https://crm.example.com/", dependsOn: "https://api.example.com/health" },
+    ]);
+    expect(Object.keys(file.settings)).toEqual(["smtp"]);
+    expect(JSON.stringify(file)).not.toMatch(/password/i);
+
+    // เครื่องใหม่ (ว่าง) + เว็บเสีย 1 รายการในไฟล์
+    await handle.db.execute(
+      sql`TRUNCATE websites, website_state, journeys, website_dependencies RESTART IDENTITY CASCADE`,
+    );
+    await handle.db.execute(sql`DELETE FROM app_settings WHERE key = 'smtp'`);
+    const broken = {
+      ...file,
+      websites: [...file.websites, { ...file.websites[0]!, name: "bad", url: "ftp://x" }],
+    };
+
+    const dry = await importSites(handle.db, broken, { dryRun: true });
+    expect(dry.added).toEqual(["api", "crm"]);
+    expect((await handle.db.execute(sql`SELECT count(*)::int AS n FROM websites`)).rows[0]).toEqual({ n: 0 });
+
+    const r1 = await importSites(handle.db, broken);
+    expect(r1.added).toEqual(["api", "crm"]);
+    expect(r1.skipped).toEqual([{ name: "bad", reason: expect.any(String) }]);
+    expect(r1).toMatchObject({ dependencies: 1, journeys: 1, settings: { saved: ["smtp"] } });
+    const sites = await handle.db.execute<{ name: string; due: boolean; emails: string[] }>(sql`
+      SELECT w.name, s.next_check_at <= now() AS due, w.alert_emails AS emails
+      FROM websites w JOIN website_state s ON s.website_id = w.id ORDER BY w.id
+    `);
+    expect(sites.rows).toEqual([
+      { name: "api", due: true, emails: ["a@example.com"] },
+      { name: "crm", due: true, emails: ["ops@example.com", "it@example.com"] },
+    ]);
+
+    // รันซ้ำ: ไม่สร้างซ้ำ · ค่าตั้งที่แก้บน server แล้วไม่ถูกทับ
+    await handle.db.execute(
+      sql`UPDATE app_settings SET value = jsonb_set(value, '{host}', '"smtp.server.local"') WHERE key = 'smtp'`,
+    );
+    const r2 = await importSites(handle.db, file);
+    expect(r2.added).toEqual([]);
+    expect(r2.skipped.map((s) => s.reason)).toEqual(["มี URL นี้อยู่แล้ว", "มี URL นี้อยู่แล้ว"]);
+    expect(r2).toMatchObject({ dependencies: 0, journeys: 0, settings: { kept: ["smtp"] } });
+    const host = await handle.db.execute<{ h: string }>(
+      sql`SELECT value->>'host' AS h FROM app_settings WHERE key = 'smtp'`,
+    );
+    expect(host.rows[0]!.h).toBe("smtp.server.local");
+
+    await expect(importSites(handle.db, { version: 99, websites: [] })).rejects.toThrow(/รุ่น/);
   });
 
   it("recipients for every site get DOWN too — merged with the site's own, no duplicates", async () => {

@@ -48,12 +48,17 @@ cp .env.example .env && chmod 600 .env       # .env มีรหัสผ่า�
 nano .env    # POSTGRES_PASSWORD (openssl rand -hex 24), APP_BASE_URL = ที่อยู่ของเครื่องนี้ เช่น http://192.168.1.50:3000
 docker compose up -d --build                 # migrate ฐานข้อมูลให้อัตโนมัติก่อนเว็บ/Worker เริ่ม
 docker compose run --rm worker node dist/create-user.cjs --username admin --role admin   # ถามรหัสผ่าน (≥ 8 ตัว)
+docker compose run --rm worker node dist/import-sites.cjs   # นำเข้ารายชื่อเว็บ + ค่าตั้งจาก deploy/sites.json (รันซ้ำได้)
 docker compose ps                            # web, worker, postgres = healthy · migrate = exited (0)
 curl -s localhost:3000/api/health            # ต้องเห็น "database":"ok"
 ```
 
 เปิด `APP_BASE_URL` → เข้าสู่ระบบ → **ตั้งค่า**: กรอก SMTP (รหัสผ่านอยู่ใน `.env` → `SMTP_PASSWORD`), เพิ่ม **ผู้รับแจ้งเตือนทุกเว็บ** แล้วกด "ส่งอีเมลทดสอบ" →
 **เว็บไซต์ → + เพิ่มเว็บไซต์** (กด "ทดสอบ URL" ก่อนบันทึก)
+
+รายชื่อเว็บใน `deploy/sites.json` ส่งออกจากเครื่อง dev ด้วย `pnpm sites:export` — มีเว็บ, ความเชื่อมโยง, การทดสอบใช้งานจริง
+และค่าตั้งที่ไม่ใช่ความลับ (ไม่มีรหัสผ่าน/ประวัติ/ภาพต้นแบบ) · เว็บที่ URL มีอยู่แล้วจะข้าม · ค่าตั้งที่ server บันทึกไว้แล้วไม่ถูกทับ
+(`--overwrite-settings` ถ้าต้องการ) · ดูผลก่อนด้วย `--dry-run` · **ไฟล์นี้มีอีเมลผู้รับ — ใช้กับ repo แบบ Private**
 
 อัปเดตรอบถัดไป (migrate ให้เองทุกครั้ง):
 

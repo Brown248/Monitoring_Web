@@ -17,7 +17,8 @@ COPY apps/worker apps/worker
 RUN pnpm --filter @app/worker build
 
 # bundle รวมทุก dependency แล้ว ยกเว้น playwright-core (มีไฟล์ประกอบ) และ argon2 (native module) — ติดตั้งแยก
-# dist/ มี 3 คำสั่ง: index.cjs (Worker), migrate.cjs (ปรับฐานข้อมูล), create-user.cjs (สร้าง/รีเซ็ตผู้ใช้)
+# dist/: index.cjs (Worker), migrate.cjs (ปรับฐานข้อมูล), create-user.cjs (สร้าง/รีเซ็ตผู้ใช้),
+#        export-sites.cjs / import-sites.cjs (ย้ายรายชื่อเว็บระหว่างเครื่อง)
 FROM node:24-slim AS runtime
 ENV NODE_ENV=production
 # Chromium สำหรับตรวจหน้าเว็บด้วยภาพ + ฟอนต์ไทย/อีโมจิให้หน้าเว็บไทยแสดงถูกต้องในภาพ
@@ -34,5 +35,7 @@ RUN npm install --omit=dev --no-save --no-package-lock \
 COPY --from=build --chown=node:node /repo/apps/worker/dist ./dist
 COPY --from=build --chown=node:node /repo/packages/db/migrations ./migrations
 ENV MIGRATIONS_DIR=/app/migrations
+# รายชื่อเว็บสำหรับ import-sites (ส่งออกจากเครื่อง dev ด้วย pnpm sites:export)
+COPY --chown=node:node deploy ./deploy
 USER node
 CMD ["node", "--enable-source-maps", "dist/index.cjs"]

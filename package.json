@@ -23,7 +23,9 @@
     "db:generate": "pnpm --filter @app/db generate",
     "db:migrate": "pnpm --filter @app/worker migrate",
     "db:studio": "pnpm --filter @app/db studio",
-    "user:create": "pnpm --filter @app/worker user:create"
+    "user:create": "pnpm --filter @app/worker user:create",
+    "sites:export": "pnpm --filter @app/worker sites:export",
+    "sites:import": "pnpm --filter @app/worker sites:import"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",

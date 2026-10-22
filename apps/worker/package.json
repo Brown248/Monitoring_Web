@@ -4,11 +4,13 @@
   "type": "module",
   "scripts": {
     "dev": "node --env-file=../../.env --watch --import tsx src/index.ts",
-    "build": "esbuild src/index.ts src/cli/migrate.ts src/cli/create-user.ts --bundle --platform=node --target=node24 --format=cjs --sourcemap --external:pg-native --external:playwright-core --external:argon2 --outdir=dist --entry-names=[name] --out-extension:.js=.cjs",
+    "build": "esbuild src/index.ts src/cli/migrate.ts src/cli/create-user.ts src/cli/export-sites.ts src/cli/import-sites.ts --bundle --platform=node --target=node24 --format=cjs --sourcemap --external:pg-native --external:playwright-core --external:argon2 --outdir=dist --entry-names=[name] --out-extension:.js=.cjs",
     "start": "node --enable-source-maps dist/index.cjs",
     "typecheck": "tsc --noEmit",
     "migrate": "node --env-file=../../.env --import tsx src/cli/migrate.ts",
-    "user:create": "node --env-file=../../.env --import tsx src/cli/create-user.ts"
+    "user:create": "node --env-file=../../.env --import tsx src/cli/create-user.ts",
+    "sites:export": "node --env-file=../../.env --import tsx src/cli/export-sites.ts",
+    "sites:import": "node --env-file=../../.env --import tsx src/cli/import-sites.ts"
   },
   "dependencies": {
     "@app/core": "workspace:*",
