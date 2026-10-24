@@ -1,0 +1,1 @@
+@.stack-agent/rules.md

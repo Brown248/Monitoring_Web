@@ -368,6 +368,26 @@ d("worker pipeline (real PostgreSQL)", () => {
     expect(await handle.db.select().from(notificationEvents)).toHaveLength(2);
   });
 
+  // ด่านสุดท้ายในฐานข้อมูล: recordOutcome ล็อกแถว website_state อยู่แล้ว เทสต์ข้างบนจึงผ่านแม้ไม่มี unique index
+  // เทสต์นี้ insert ตรง ๆ เพื่อพิสูจน์ว่า index/constraint ยังอยู่ (ลบ index แล้วเทสต์นี้ต้องล้ม)
+  it("the database itself refuses a second open incident and a duplicate email job", async () => {
+    const site = await addSite("db-guard");
+    const open = { websiteId: site.id, startedAt: new Date(), confirmedAt: new Date(), cause: "HTTP 503" };
+    const [first] = await handle.db.insert(incidents).values(open).returning({ id: incidents.id });
+    const pgCode = async (query: Promise<unknown>) => {
+      const err = await query.then(
+        () => undefined,
+        (e: unknown) => e as { code?: string; cause?: { code?: string } },
+      );
+      return err?.cause?.code ?? err?.code;
+    };
+    expect(await pgCode(handle.db.insert(incidents).values(open))).toBe("23505");
+
+    const job = { incidentId: first!.id, eventType: "DOWN" as const, recipient: "ops@example.com" };
+    await handle.db.insert(notificationEvents).values(job);
+    expect(await pgCode(handle.db.insert(notificationEvents).values(job))).toBe("23505");
+  });
+
   it("claimDueChecks hands each due site to exactly one claimer (SKIP LOCKED) and pushes next_check_at", async () => {
     for (let i = 0; i < 6; i++) await addSite(`site${i}`, { checkIntervalSeconds: 300 });
     const disabled = await addSite("disabled", { enabled: false });

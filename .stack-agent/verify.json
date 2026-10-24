@@ -1,0 +1,58 @@
+{
+  "test": { "args": ["node", "scripts/verify-env.mjs", "test"], "timeoutSec": 900 },
+  "server": {
+    "args": ["node", "scripts/verify-env.mjs", "serve"],
+    "env": { "PORT": "3999" },
+    "readyUrl": "http://127.0.0.1:3999/api/health",
+    "readyTimeoutSec": 240
+  },
+  "baseUrl": "http://127.0.0.1:3999",
+  "evidenceDir": ".stack-agent/evidence",
+  "checks": [
+    {
+      "name": "typecheck",
+      "command": "pnpm typecheck",
+      "timeoutSec": 600
+    },
+    {
+      "name": "health",
+      "method": "GET",
+      "path": "/api/health",
+      "expectStatus": 200,
+      "expectJson": { "status": "ok", "database": "ok" },
+      "timeoutSec": 60
+    },
+    {
+      "name": "login-page",
+      "method": "GET",
+      "path": "/login",
+      "expectStatus": 200,
+      "expectBodyIncludes": "name=\"password\"",
+      "timeoutSec": 120
+    },
+    {
+      "name": "dashboard-requires-login",
+      "method": "GET",
+      "path": "/websites",
+      "expectStatus": 200,
+      "expectBodyIncludes": "name=\"password\"",
+      "timeoutSec": 120
+    },
+    {
+      "name": "api-requires-login",
+      "method": "POST",
+      "path": "/api/websites",
+      "body": {},
+      "expectStatus": 401,
+      "timeoutSec": 120
+    },
+    {
+      "name": "admin-adds-website",
+      "args": ["node", "scripts/verify-login-flow.mjs"],
+      "needsServer": true,
+      "env": { "BASE_URL": "http://127.0.0.1:3999" },
+      "expectOutputIncludes": "flow ok",
+      "timeoutSec": 600
+    }
+  ]
+}

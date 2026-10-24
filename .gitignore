@@ -21,3 +21,4 @@ Thumbs.db
 
 # Claude Code local data
 .claude/
+.stack-agent/evidence/
