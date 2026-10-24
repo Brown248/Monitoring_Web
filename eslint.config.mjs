@@ -14,6 +14,8 @@ export default defineConfig(
       "**/dist/**",
       "**/next-env.d.ts",
       "packages/db/migrations/**",
+      // เครื่องมือของ Stack Agent ที่ copy มา (init.mjs เขียนทับทุกครั้ง) และผลการ verify
+      ".stack-agent/**",
     ],
   },
   js.configs.recommended,
@@ -21,11 +23,19 @@ export default defineConfig(
   // กฎของ Next ใช้เฉพาะใน apps/web
   ...nextVitals.map((config) => ({ ...config, files: WEB_FILES })),
   { files: WEB_FILES, settings: { next: { rootDir: "apps/web/" } } },
-  // สคริปต์ Node ที่ root (dev-db, start-web)
+  // สคริปต์ Node ที่ root (dev-db, start-web, verify-env, verify-login-flow)
   {
     files: ["scripts/**/*.mjs"],
     languageOptions: {
-      globals: { process: "readonly", console: "readonly", setInterval: "readonly", setTimeout: "readonly" },
+      globals: {
+        process: "readonly",
+        console: "readonly",
+        setInterval: "readonly",
+        setTimeout: "readonly",
+        fetch: "readonly",
+        URL: "readonly",
+        AbortSignal: "readonly",
+      },
     },
   },
   prettier,

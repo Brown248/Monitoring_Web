@@ -7,6 +7,9 @@ const rootEnv = path.join(process.cwd(), "../../.env");
 if (existsSync(rootEnv)) process.loadEnvFile(rootEnv);
 
 const nextConfig: NextConfig = {
+  // scripts/verify-env.mjs ตั้ง WEB_DIST_DIR=.next/verify — Next 16 ไม่ยอมเปิด next dev ตัวที่สองในโฟลเดอร์ .next เดียวกัน
+  // (pnpm dev:web ที่เปิดค้างไว้จะทำให้ verify ล้ม) · ไม่ตั้ง = .next ตามปกติ
+  distDir: process.env.WEB_DIST_DIR || ".next",
   output: "standalone",
   // next build รันจาก apps/web เสมอ → root ของ monorepo อยู่ขึ้นไปสองระดับ
   outputFileTracingRoot: path.join(process.cwd(), "../.."),
