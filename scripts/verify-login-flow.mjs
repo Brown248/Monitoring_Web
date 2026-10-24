@@ -1,7 +1,7 @@
 // ขั้นตอนจริงของผู้ดูแล (ใช้กับ server ที่ scripts/verify-env.mjs serve เปิดไว้):
 //   login → เพิ่มเว็บไซต์ → เห็นในหน้า "เว็บไซต์" · เพิ่ม URL ภายใน (SSRF) ต้องถูกปฏิเสธ · รหัสผิดต้อง login ไม่ได้
 // พิมพ์ "flow ok" เมื่อผ่านทุกขั้น · ล้มเหลว = exit 1 พร้อมบอกขั้นที่พัง
-import { TEST_PASSWORD, TEST_USER } from "./verify-env.mjs";
+import { TEST_PASSWORD, TEST_USER } from "./verify-constants.mjs";
 
 const base = (process.env.BASE_URL || "http://127.0.0.1:3999").replace(/\/+$/, "");
 const origin = new URL(base).origin;
@@ -73,6 +73,13 @@ const internal = await call("/api/websites", {
 });
 if (internal.res.status !== 400)
   fail("add an internal-IP website (SSRF guard)", `status ${internal.res.status}, expected 400`);
+// 400 ต้องมาจากช่อง url (SSRF guard) และไม่มีช่องอื่นผิด — ไม่ใช่ 400 จากกฎอื่นที่อาจเพิ่มในอนาคต
+const refused = JSON.parse(internal.text).fields ?? {};
+if (!refused.url || Object.keys(refused).some((k) => k !== "url"))
+  fail(
+    "add an internal-IP website (SSRF guard)",
+    `expected an error on the url field only, got ${internal.text}`,
+  );
 
 const list = await call("/websites", { cookie: session });
 if (list.res.status !== 200) fail("open the websites page", `status ${list.res.status}`);

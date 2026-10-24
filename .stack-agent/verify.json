@@ -8,6 +8,15 @@
   },
   "baseUrl": "http://127.0.0.1:3999",
   "evidenceDir": ".stack-agent/evidence",
+  "against": {
+    "link": [
+      "node_modules",
+      "apps/web/node_modules",
+      "apps/worker/node_modules",
+      "packages/core/node_modules",
+      "packages/db/node_modules"
+    ]
+  },
   "checks": [
     {
       "name": "typecheck",

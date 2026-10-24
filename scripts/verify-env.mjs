@@ -11,9 +11,7 @@ import os from "node:os";
 import path from "node:path";
 import pg from "pg";
 
-/** ผู้ใช้ทดสอบในฐานข้อมูลชั่วคราวเท่านั้น (ไม่ใช่ผู้ใช้จริง) — scripts/verify-login-flow.mjs ใช้ค่านี้ */
-export const TEST_USER = "verify-admin";
-export const TEST_PASSWORD = "verify-only-password";
+import { TEST_PASSWORD, TEST_USER } from "./verify-constants.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const DB = { user: "verify", password: "verify-only-db-password", database: "monitor_verify" };
@@ -31,19 +29,18 @@ function alive(pid) {
 
 /**
  * verify บน Windows หยุด process ด้วย taskkill /F — cleanup ไม่ได้รัน โฟลเดอร์จึงค้าง
- * ตอนเริ่มลบโฟลเดอร์ที่ process เจ้าของ (ไฟล์ owner.pid) ไม่อยู่แล้ว · ไม่มีไฟล์ pid = ลบเมื่อเกิน 2 ชม.
+ * ตอนเริ่มลบโฟลเดอร์ที่ process เจ้าของ (ไฟล์ owner.pid) ไม่อยู่แล้ว หรือเก่าเกิน 12 ชม. (verify รอบหนึ่งใช้ไม่กี่นาที
+ * แต่ Windows นำ PID เก่ากลับมาใช้ใหม่ได้ — ไม่มีเพดานอายุ โฟลเดอร์อาจค้างตลอดไป)
  */
 function removeStaleDirs() {
-  const cutoff = Date.now() - 2 * 60 * 60 * 1000;
+  const cutoff = Date.now() - 12 * 60 * 60 * 1000;
   for (const name of readdirSync(os.tmpdir())) {
     if (!name.startsWith(TMP_PREFIX)) continue;
     const dir = path.join(os.tmpdir(), name);
     try {
       const pidFile = path.join(dir, OWNER_FILE);
-      const stale = existsSync(pidFile)
-        ? !alive(Number(readFileSync(pidFile, "utf8")))
-        : statSync(dir).mtimeMs < cutoff;
-      if (stale) rmSync(dir, { recursive: true, force: true });
+      const ownerGone = existsSync(pidFile) && !alive(Number(readFileSync(pidFile, "utf8")));
+      if (ownerGone || statSync(dir).mtimeMs < cutoff) rmSync(dir, { recursive: true, force: true });
     } catch {
       // ไฟล์ยังถูกถืออยู่หรือถูกลบไปแล้ว — ลองใหม่รอบหลัง
     }

@@ -18,7 +18,7 @@
       "type": "pattern",
       "files": ["**"],
       "exclude": [".stack-agent/**"],
-      "pattern": "-----BEGIN ((RSA|EC|DSA|OPENSSH) )?PRIVATE KEY-----",
+      "pattern": "-----BEGIN ((RSA|EC|DSA|OPENSSH|ENCRYPTED|PGP) )?PRIVATE KEY( BLOCK)?-----",
       "message": "a private key is in the repository",
       "fix": "remove it, rotate the key, and load it from a secret store or an untracked env file (.env is gitignored; GOOGLE_SERVICE_ACCOUNT_JSON goes there)"
     },
@@ -27,7 +27,16 @@
       "type": "pattern",
       "onEdit": "skip",
       "files": ["**"],
-      "exclude": [".stack-agent/**", "**/*.md", "**/*.log", "dist/**", "build/**", "out/**", ".next/**", "coverage/**"],
+      "exclude": [
+        ".stack-agent/**",
+        "**/*.md",
+        "**/*.log",
+        "dist/**",
+        "build/**",
+        "out/**",
+        ".next/**",
+        "coverage/**"
+      ],
       "pattern": "\\[DEBUG-[0-9A-Za-z]+\\]",
       "message": "a tagged debug line from /stack-agent:debug is still in the code",
       "fix": "delete every line tagged [DEBUG-...] (grep for the tag); keep the regression test instead"
@@ -41,24 +50,42 @@
         "apps/web/src/app/login/login-form.tsx"
       ],
       "to": ["apps/web/src/lib/**", "packages/db/**", "packages/core/src/server/**"],
-      "toSpecifiers": ["@app/db", "@app/db/*", "@app/core/server", "pg", "argon2", "nodemailer", "undici", "server-only"],
+      "toSpecifiers": [
+        "@app/db",
+        "@app/db/*",
+        "@app/core/server",
+        "pg",
+        "argon2",
+        "nodemailer",
+        "undici",
+        "server-only"
+      ],
       "message": "a \"use client\" component must not import server code (database, auth, secrets from lib/env); it leaks into the browser bundle or breaks the build",
       "fix": "call the API with apps/web/src/components/client/fetch.ts, or move a pure helper into @app/core (packages/core/src, not src/server)"
     },
     {
       "id": "outgoing-requests-through-ssrf-guard",
       "type": "pattern",
-      "files": ["apps/worker/src/**", "packages/core/src/**", "apps/web/src/lib/**", "apps/web/src/app/api/**"],
+      "files": [
+        "apps/worker/src/**",
+        "packages/core/src/**",
+        "packages/db/src/**",
+        "apps/web/src/lib/**",
+        "apps/web/src/app/**",
+        "apps/web/src/proxy.ts"
+      ],
       "exclude": [
         "**/*.test.ts",
         "packages/core/src/server/guarded-fetch.ts",
         "packages/core/src/server/http-check.ts",
         "packages/core/src/server/egress-proxy.ts",
-        "packages/core/src/server/ai/**"
+        "packages/core/src/server/ai/**",
+        "packages/core/src/server/probe.ts",
+        "packages/core/src/server/security-scan.ts"
       ],
-      "pattern": "\\bfetch\\(|from \"undici\"|from \"node:https?\"",
-      "message": "server code requests a URL without the SSRF guard, so a monitored site (or a redirect it returns) could reach hosts inside the LAN",
-      "fix": "use fetchBytesGuarded from packages/core/src/server/guarded-fetch.ts, or runCheck from http-check.ts, which check the destination IP on every hop"
+      "pattern": "\\bfetch\\(|from \"(node:)?https?\"|from \"undici\"|(import|require)\\(\\s*\"undici\"|\\b(net|tls)\\.connect\\(|new WebSocket\\(",
+      "message": "server code opens a connection without the SSRF guard, so a monitored site (or a redirect it returns) could reach hosts inside the LAN",
+      "fix": "use fetchBytesGuarded (guarded-fetch.ts) or runCheck (http-check.ts); for a raw socket pass lookup: createGuardedLookup() or check isBlockedIp first, as security-scan.ts and probe.ts do; browsers go through startGuardedProxy (egress-proxy.ts)"
     }
   ]
 }

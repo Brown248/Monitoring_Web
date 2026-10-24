@@ -3,4 +3,6 @@ node_modules
 dist
 pnpm-lock.yaml
 packages/db/migrations
-.stack-agent
+.stack-agent/bin
+.stack-agent/evidence
+.stack-agent/guard-baseline.json
