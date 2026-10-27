@@ -6,3 +6,4 @@ packages/db/migrations
 .stack-agent/bin
 .stack-agent/evidence
 .stack-agent/guard-baseline.json
+.stack-agent/
