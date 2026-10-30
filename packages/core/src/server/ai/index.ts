@@ -1,6 +1,6 @@
 import type { AiSettings } from "../../schemas/settings";
 import { analyzeWithAnthropic, ANTHROPIC_DEFAULT_MODEL, testAnthropic } from "./anthropic";
-import { effectiveModel, type AiEnv } from "./config";
+import { providerConfig, type AiEnv } from "./config";
 import { analyzeWithOpenAi, testOpenAi } from "./openai";
 import { AiError, type AnalysisResult, type AnalyzeRequest } from "./types";
 
@@ -14,14 +14,14 @@ export * from "./ask";
 export async function analyze(s: AiSettings, env: AiEnv, req: AnalyzeRequest): Promise<AnalysisResult> {
   if (s.provider === "none") throw new AiError("ยังไม่ได้เลือก AI provider", false);
   if (!env.apiKey) throw new AiError("ไม่พบ AI_API_KEY ใน .env", false);
-  const cfg = { apiKey: env.apiKey, model: effectiveModel(s), baseUrl: env.baseUrl };
+  const cfg = providerConfig(s, { ...env, apiKey: env.apiKey });
   return s.provider === "anthropic" ? analyzeWithAnthropic(cfg, req) : analyzeWithOpenAi(cfg, req);
 }
 
 export async function testAiConnection(s: AiSettings, env: AiEnv): Promise<string> {
   if (s.provider === "none") throw new AiError("ยังไม่ได้เลือก AI provider", false);
   if (!env.apiKey) throw new AiError("ไม่พบ AI_API_KEY ใน .env", false);
-  const cfg = { apiKey: env.apiKey, model: effectiveModel(s), baseUrl: env.baseUrl };
+  const cfg = providerConfig(s, { ...env, apiKey: env.apiKey });
   return s.provider === "anthropic" ? testAnthropic(cfg) : testOpenAi(cfg);
 }
 

@@ -468,6 +468,7 @@ export function SettingsClient({
               >
                 <option value="none">ปิดใช้งาน</option>
                 <option value="anthropic">Anthropic (Claude)</option>
+                <option value="gemini">Google (Gemini)</option>
                 <option value="openai">OpenAI / OpenAI-compatible</option>
               </select>
             </Field>
@@ -477,15 +478,23 @@ export function SettingsClient({
               hint={
                 ai.value.provider === "anthropic"
                   ? "เว้นว่าง = claude-opus-5-5"
-                  : ai.value.provider === "openai"
-                    ? "ต้องระบุชื่อรุ่น"
-                    : undefined
+                  : ai.value.provider === "gemini"
+                    ? "เว้นว่าง = gemini-2.5-flash"
+                    : ai.value.provider === "openai"
+                      ? "ต้องระบุชื่อรุ่น"
+                      : undefined
               }
             >
               <input
                 value={ai.value.model}
                 onChange={(e) => ai.set("model", e.target.value)}
-                placeholder={ai.value.provider === "anthropic" ? "claude-opus-5-5" : "[ชื่อรุ่น]"}
+                placeholder={
+                  ai.value.provider === "anthropic"
+                    ? "claude-opus-5-5"
+                    : ai.value.provider === "gemini"
+                      ? "gemini-2.5-flash"
+                      : "[ชื่อรุ่น]"
+                }
               />
             </Field>
             <Field label="จำกัดการเรียกต่อเดือน" error={fe(ai, "monthlyLimit")} hint="0 = ไม่จำกัด">

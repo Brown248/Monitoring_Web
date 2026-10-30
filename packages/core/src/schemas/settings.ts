@@ -67,7 +67,7 @@ export const DEFAULT_DEFACE_KEYWORDS = [
   "เครดิตฟรี",
 ];
 
-export const AI_PROVIDERS = ["none", "openai", "anthropic"] as const;
+export const AI_PROVIDERS = ["none", "openai", "anthropic", "gemini"] as const;
 
 export const aiSettingsSchema = z.object({
   provider: z.enum(AI_PROVIDERS),
