@@ -1,2 +1,5 @@
+# ไฟล์ข้อความเป็น LF เสมอ ทั้งใน repo และบนเครื่อง Windows ที่ตั้ง core.autocrlf=true
+# (prettier ใช้ LF — ไฟล์ที่ git เขียนเป็น CRLF ทำให้ pnpm format:check บนเครื่องล้มทั้งที่ CI ผ่าน)
+* text=auto eol=lf
 # สคริปต์ shell ต้องเป็น LF เสมอ (CRLF ทำให้ bash บน Linux รันไม่ได้)
 *.sh text eol=lf

@@ -5,6 +5,10 @@ on:
   push:
     branches: [main]
 
+# อ่าน repo อย่างเดียว — job เหล่านี้ไม่เขียนอะไรกลับไปที่ GitHub (pnpm install รันสคริปต์ของ package ภายนอก)
+permissions:
+  contents: read
+
 jobs:
   guard:
     runs-on: ubuntu-latest
