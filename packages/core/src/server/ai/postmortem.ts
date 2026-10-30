@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { AiSettings } from "../../schemas/settings";
 import { parseWithAnthropic } from "./anthropic";
-import { effectiveModel, type AiEnv } from "./config";
+import { providerConfig, type AiEnv } from "./config";
 import { parseWithOpenAi } from "./openai";
 import { AiError, type AnalyzeRequest } from "./types";
 
@@ -111,7 +111,7 @@ export async function generatePostmortem(
 ): Promise<PostmortemResult> {
   if (s.provider === "none") throw new AiError("ยังไม่ได้เลือก AI provider", false);
   if (!env.apiKey) throw new AiError("ไม่พบ AI_API_KEY ใน .env", false);
-  const cfg = { apiKey: env.apiKey, model: effectiveModel(s), baseUrl: env.baseUrl };
+  const cfg = providerConfig(s, { ...env, apiKey: env.apiKey });
   return s.provider === "anthropic"
     ? parseWithAnthropic(cfg, req, postmortemSchema)
     : parseWithOpenAi(cfg, req, postmortemSchema, POSTMORTEM_JSON_SCHEMA, "incident_postmortem");

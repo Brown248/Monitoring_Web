@@ -24,6 +24,12 @@
       "timeoutSec": 600
     },
     {
+      "name": "gemini-provider",
+      "command": "pnpm exec vitest run packages/core/src/server/ai/config.test.ts",
+      "expectOutputIncludes": "4 passed",
+      "timeoutSec": 300
+    },
+    {
       "name": "health",
       "method": "GET",
       "path": "/api/health",
